@@ -35,6 +35,10 @@ import (
 	"go.universe.tf/metallb/internal/layer2"
 )
 
+const (
+	primaryNodeAnnotation = "metallb.io" + "/" + "primary-node"
+)
+
 type layer2Controller struct {
 	announcer       *layer2.Announce
 	myNode          string
@@ -105,10 +109,20 @@ func (c *layer2Controller) ShouldAnnounce(l log.Logger, name string, toAnnounce 
 
 	// Using the first IP should work for both single and dual stack.
 	ipString := toAnnounce[0].String()
+
+	primaryNode, _ := svc.Annotations[primaryNodeAnnotation]
+	level.Debug(l).Log("event", "shouldannounce", "protocol", "l2", "primaryNode", primaryNode, "service", name)
+
 	// Sort the slice by the hash of node + load balancer ips. This
 	// produces an ordering of ready nodes that is unique to all the services
 	// with the same ip.
 	sort.Slice(availableNodes, func(i, j int) bool {
+		if availableNodes[i] == primaryNode {
+			return true
+		}
+		if availableNodes[j] == primaryNode {
+			return false
+		}
 		hi := sha256.Sum256([]byte(availableNodes[i] + "#" + ipString))
 		hj := sha256.Sum256([]byte(availableNodes[j] + "#" + ipString))
 
