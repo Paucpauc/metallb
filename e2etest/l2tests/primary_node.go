@@ -43,13 +43,13 @@ var _ = ginkgo.Describe("L2 Primary Node Annotation", func() {
 	ginkgo.BeforeEach(func() {
 		cs = k8sclient.New()
 		var err error
-		testNamespace, err = k8s.CreateTestNamespace(cs, "l2-primary")
+		testNamespace, err = k8s.CreateTestNamespace(cs, "l2-primary-node")
 		Expect(err).NotTo(HaveOccurred())
 
 		resources := config.Resources{
 			Pools: []metallbv1beta1.IPAddressPool{
 				{
-					ObjectMeta: metav1.ObjectMeta{Name: "primary-test"},
+					ObjectMeta: metav1.ObjectMeta{Name: "primary-node-test"},
 					Spec: metallbv1beta1.IPAddressPoolSpec{
 						Addresses: []string{IPV4ServiceRange, IPV6ServiceRange},
 					},
