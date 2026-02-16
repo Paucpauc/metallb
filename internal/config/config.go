@@ -203,6 +203,8 @@ type BGPAdvertisement struct {
 type L2Advertisement struct {
 	// The map of nodes allowed for this advertisement
 	Nodes map[string]bool
+	// The map of primary nodes for this advertisement
+	PrimaryNodes map[string]bool
 	// The interfaces in Nodes allowed for this advertisement
 	Interfaces []string
 	// AllInterfaces tells if all the interfaces are allowed for this advertisement
@@ -735,13 +737,22 @@ func l2AdvertisementFromCR(crdAd metallbv1beta1.L2Advertisement, nodes []corev1.
 	if err != nil {
 		return nil, err
 	}
+	err = validateLabelSelectorDuplicate(crdAd.Spec.PrimaryNodeSelectors, "primaryNodeSelectors")
+	if err != nil {
+		return nil, err
+	}
 	selected, err := selectedNodes(nodes, crdAd.Spec.NodeSelectors)
 	if err != nil {
 		return nil, errors.Join(err, fmt.Errorf("failed to parse node selector for %s", crdAd.Name))
 	}
+	primarySelected, err := selectedNodes(nodes, crdAd.Spec.PrimaryNodeSelectors)
+	if err != nil {
+		return nil, errors.Join(err, fmt.Errorf("failed to parse primary node selector for %s", crdAd.Name))
+	}
 	l2 := &L2Advertisement{
-		Nodes:      selected,
-		Interfaces: crdAd.Spec.Interfaces,
+		Nodes:        selected,
+		PrimaryNodes: primarySelected,
+		Interfaces:   crdAd.Spec.Interfaces,
 	}
 	if len(crdAd.Spec.Interfaces) == 0 {
 		l2.AllInterfaces = true
@@ -1054,6 +1065,9 @@ func containsAdvertisement(advs []*L2Advertisement, toCheck *L2Advertisement) bo
 			continue
 		}
 		if !reflect.DeepEqual(adv.Nodes, toCheck.Nodes) {
+			continue
+		}
+		if !reflect.DeepEqual(adv.PrimaryNodes, toCheck.PrimaryNodes) {
 			continue
 		}
 		if !sets.New(adv.Interfaces...).Equal(sets.New(toCheck.Interfaces...)) {

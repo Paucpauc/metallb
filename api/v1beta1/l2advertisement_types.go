@@ -35,6 +35,10 @@ type L2AdvertisementSpec struct {
 	// NodeSelectors allows to limit the nodes to announce as next hops for the LoadBalancer IP. When empty, all the nodes having  are announced as next hops.
 	// +optional
 	NodeSelectors []metav1.LabelSelector `json:"nodeSelectors,omitempty"`
+	// PrimaryNodeSelectors allows to specify which node should be the primary node for the LoadBalancer IP using label selector.
+	// When specified, the node matching this selector will be preferred as the primary node.
+	// +optional
+	PrimaryNodeSelectors []metav1.LabelSelector `json:"primaryNodeSelectors,omitempty"`
 	// A list of interfaces to announce from. The LB IP will be announced only from these interfaces.
 	// If the field is not set, we advertise from all the interfaces on the host.
 	// +optional

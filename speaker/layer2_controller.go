@@ -110,17 +110,35 @@ func (c *layer2Controller) ShouldAnnounce(l log.Logger, name string, toAnnounce 
 	// Using the first IP should work for both single and dual stack.
 	ipString := toAnnounce[0].String()
 
-	primaryNode, _ := svc.Annotations[primaryNodeAnnotation]
-	level.Debug(l).Log("event", "shouldannounce", "protocol", "l2", "primaryNode", primaryNode, "service", name)
+	// Get primary nodes from L2 advertisements
+	primaryNodes := getPrimaryNodesFromL2Advertisements(pool.L2Advertisements)
+	level.Debug(l).Log("event", "shouldannounce", "protocol", "l2", "primaryNodes", primaryNodes, "service", name)
 
 	// Sort the slice by the hash of node + load balancer ips. This
 	// produces an ordering of ready nodes that is unique to all the services
 	// with the same ip.
 	sort.Slice(availableNodes, func(i, j int) bool {
-		if availableNodes[i] == primaryNode {
+		// Check if node i is a primary node
+		isIPrimary := false
+		for _, primaryNode := range primaryNodes {
+			if availableNodes[i] == primaryNode {
+				isIPrimary = true
+				break
+			}
+		}
+		// Check if node j is a primary node
+		isJPrimary := false
+		for _, primaryNode := range primaryNodes {
+			if availableNodes[j] == primaryNode {
+				isJPrimary = true
+				break
+			}
+		}
+		// Primary nodes come first
+		if isIPrimary && !isJPrimary {
 			return true
 		}
-		if availableNodes[j] == primaryNode {
+		if !isIPrimary && isJPrimary {
 			return false
 		}
 		hi := sha256.Sum256([]byte(availableNodes[i] + "#" + ipString))
@@ -255,4 +273,15 @@ func (c *layer2Controller) speakersForPool(l log.Logger, name string, pool *conf
 		}
 	}
 	return res
+}
+
+// getPrimaryNodesFromL2Advertisements returns the list of primary nodes from L2 advertisements
+func getPrimaryNodesFromL2Advertisements(l2Advertisements []*config.L2Advertisement) []string {
+	var primaryNodes []string
+	for _, l2Adv := range l2Advertisements {
+		for node := range l2Adv.PrimaryNodes {
+			primaryNodes = append(primaryNodes, node)
+		}
+	}
+	return primaryNodes
 }

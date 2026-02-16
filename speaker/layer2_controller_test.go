@@ -72,10 +72,8 @@ func TestUsableNodesEPSlicesWithSpeakerlistDisabled(t *testing.T) {
 
 	advertisementsForNode := []*config.L2Advertisement{
 		{
-			Nodes: map[string]bool{
-				"iris1": true,
-				"iris2": true,
-			},
+			Nodes:        map[string]bool{"iris1": true, "iris2": true},
+			PrimaryNodes: map[string]bool{},
 		},
 	}
 
@@ -383,10 +381,8 @@ func TestShouldAnnounceEPSlices(t *testing.T) {
 	c2.client = &testK8S{t: t}
 	advertisementsForNode := []*config.L2Advertisement{
 		{
-			Nodes: map[string]bool{
-				"iris1": true,
-				"iris2": true,
-			},
+			Nodes:        map[string]bool{"iris1": true, "iris2": true},
+			PrimaryNodes: map[string]bool{},
 		},
 	}
 
@@ -1252,39 +1248,40 @@ func TestShouldAnnounceFromNodes(t *testing.T) {
 	}
 	advertisementsForBoth := []*config.L2Advertisement{
 		{
-			Nodes: map[string]bool{
-				"iris1": true,
-				"iris2": true,
-			},
+			Nodes:        map[string]bool{"iris1": true, "iris2": true},
+			PrimaryNodes: map[string]bool{},
 		},
 	}
 
 	advertisementOnIris1 := []*config.L2Advertisement{
 		{
-			Nodes: map[string]bool{
-				"iris1": true,
-			},
+			Nodes:        map[string]bool{"iris1": true},
+			PrimaryNodes: map[string]bool{},
 		},
 	}
 
 	advertisementSplit := []*config.L2Advertisement{
 		{
-			Nodes: map[string]bool{
-				"iris1": true,
-			},
+			Nodes:        map[string]bool{"iris1": true},
+			PrimaryNodes: map[string]bool{},
 		},
 		{
-			Nodes: map[string]bool{
-				"iris2": true,
-			},
+			Nodes:        map[string]bool{"iris2": true},
+			PrimaryNodes: map[string]bool{},
 		},
 	}
 
 	advertisementOnIris2 := []*config.L2Advertisement{
 		{
-			Nodes: map[string]bool{
-				"iris2": true,
-			},
+			Nodes:        map[string]bool{"iris2": true},
+			PrimaryNodes: map[string]bool{},
+		},
+	}
+
+	advertisementWithPrimaryNode := []*config.L2Advertisement{
+		{
+			Nodes:        map[string]bool{"iris1": true, "iris2": true},
+			PrimaryNodes: map[string]bool{"iris1": true},
 		},
 	}
 
@@ -1469,6 +1466,32 @@ func TestShouldAnnounceFromNodes(t *testing.T) {
 			},
 			ignoreExcludeFromLB: true,
 		},
+		{
+			desc:             "One service, endpoint on iris1, primary node selector on iris1, c1 should announce",
+			balancer:         "test1",
+			eps:              epsOn("iris1"),
+			L2Advertisements: advertisementWithPrimaryNode,
+			trafficPolicy:    v1.ServiceExternalTrafficPolicyTypeCluster,
+			c1ExpectedResult: map[string]string{
+				"10.20.30.1": "",
+			},
+			c2ExpectedResult: map[string]string{
+				"10.20.30.1": "notOwner",
+			},
+		},
+		{
+			desc:             "One service, endpoint on iris2, primary node selector on iris1, c1 should announce",
+			balancer:         "test1",
+			eps:              epsOn("iris2"),
+			L2Advertisements: advertisementWithPrimaryNode,
+			trafficPolicy:    v1.ServiceExternalTrafficPolicyTypeCluster,
+			c1ExpectedResult: map[string]string{
+				"10.20.30.1": "",
+			},
+			c2ExpectedResult: map[string]string{
+				"10.20.30.1": "notOwner",
+			},
+		},
 	}
 	l := log.NewNopLogger()
 	for _, test := range tests {
@@ -1585,10 +1608,8 @@ func TestClusterPolicy(t *testing.T) {
 				CIDR: []*net.IPNet{ipnet("10.20.30.0/24")},
 				L2Advertisements: []*config.L2Advertisement{
 					{
-						Nodes: map[string]bool{
-							"iris1": true,
-							"iris2": true,
-						},
+						Nodes:        map[string]bool{"iris1": true, "iris2": true},
+						PrimaryNodes: map[string]bool{},
 					},
 				},
 			},
@@ -1712,10 +1733,8 @@ func TestIPAdvertisementFor(t *testing.T) {
 			localNode: "nodeA",
 			l2Advertisements: []*config.L2Advertisement{
 				{
-					Nodes: map[string]bool{
-						"nodeB": true,
-						"nodeA": true,
-					},
+					Nodes:         map[string]bool{"nodeB": true, "nodeA": true},
+					PrimaryNodes:  map[string]bool{},
 					Interfaces:    []string{},
 					AllInterfaces: true,
 				},
@@ -1727,16 +1746,13 @@ func TestIPAdvertisementFor(t *testing.T) {
 			localNode: "nodeA",
 			l2Advertisements: []*config.L2Advertisement{
 				{
-					Nodes: map[string]bool{
-						"nodeB": true,
-					},
-					Interfaces: []string{"eth0", "eth1"},
+					Nodes:        map[string]bool{"nodeB": true},
+					PrimaryNodes: map[string]bool{},
+					Interfaces:   []string{"eth0", "eth1"},
 				}, {
-					Nodes: map[string]bool{
-						"nodeA": false,
-						"nodeC": true,
-					},
-					Interfaces: []string{"eth3", "eth4"},
+					Nodes:        map[string]bool{"nodeA": false, "nodeC": true},
+					PrimaryNodes: map[string]bool{},
+					Interfaces:   []string{"eth3", "eth4"},
 				},
 			},
 			expect: layer2.NewIPAdvertisement(net.IP{192, 168, 10, 3}, false, sets.Set[string]{}),
@@ -1746,17 +1762,13 @@ func TestIPAdvertisementFor(t *testing.T) {
 			localNode: "nodeA",
 			l2Advertisements: []*config.L2Advertisement{
 				{
-					Nodes: map[string]bool{
-						"nodeB": true,
-						"nodeA": false,
-					},
-					Interfaces: []string{"eth0"},
+					Nodes:        map[string]bool{"nodeB": true, "nodeA": false},
+					PrimaryNodes: map[string]bool{},
+					Interfaces:   []string{"eth0"},
 				}, {
-					Nodes: map[string]bool{
-						"nodeC": true,
-						"nodeA": true,
-					},
-					Interfaces: []string{"eth1", "eth2"},
+					Nodes:        map[string]bool{"nodeC": true, "nodeA": true},
+					PrimaryNodes: map[string]bool{},
+					Interfaces:   []string{"eth1", "eth2"},
 				},
 			},
 			expect: layer2.NewIPAdvertisement(net.ParseIP("2000:12"), false, sets.New("eth1", "eth2")),
@@ -1766,23 +1778,17 @@ func TestIPAdvertisementFor(t *testing.T) {
 			localNode: "nodeA",
 			l2Advertisements: []*config.L2Advertisement{
 				{
-					Nodes: map[string]bool{
-						"nodeB": true,
-						"nodeA": true,
-					},
-					Interfaces: []string{"eth0", "eth1"},
+					Nodes:        map[string]bool{"nodeB": true, "nodeA": true},
+					PrimaryNodes: map[string]bool{},
+					Interfaces:   []string{"eth0", "eth1"},
 				}, {
-					Nodes: map[string]bool{
-						"nodeC": true,
-						"nodeA": true,
-					},
-					Interfaces: []string{"eth0", "eth2"},
+					Nodes:        map[string]bool{"nodeC": true, "nodeA": true},
+					PrimaryNodes: map[string]bool{},
+					Interfaces:   []string{"eth0", "eth2"},
 				}, {
-					Nodes: map[string]bool{
-						"nodeC": true,
-						"nodeD": true,
-					},
-					Interfaces: []string{"eth4", "eth3"},
+					Nodes:        map[string]bool{"nodeC": true, "nodeD": true},
+					PrimaryNodes: map[string]bool{},
+					Interfaces:   []string{"eth4", "eth3"},
 				},
 			},
 			expect: layer2.NewIPAdvertisement(net.IP{192, 168, 10, 3}, false, sets.New("eth0", "eth1", "eth2")),
@@ -1792,23 +1798,17 @@ func TestIPAdvertisementFor(t *testing.T) {
 			localNode: "nodeA",
 			l2Advertisements: []*config.L2Advertisement{
 				{
-					Nodes: map[string]bool{
-						"nodeB": true,
-						"nodeA": true,
-					},
-					Interfaces: []string{"eth0", "eth1"},
+					Nodes:        map[string]bool{"nodeB": true, "nodeA": true},
+					PrimaryNodes: map[string]bool{},
+					Interfaces:   []string{"eth0", "eth1"},
 				}, {
-					Nodes: map[string]bool{
-						"nodeC": true,
-						"nodeA": true,
-					},
+					Nodes:         map[string]bool{"nodeC": true, "nodeA": true},
+					PrimaryNodes:  map[string]bool{},
 					AllInterfaces: true,
 				}, {
-					Nodes: map[string]bool{
-						"nodeC": true,
-						"nodeD": true,
-					},
-					Interfaces: []string{"eth4", "eth3"},
+					Nodes:        map[string]bool{"nodeC": true, "nodeD": true},
+					PrimaryNodes: map[string]bool{},
+					Interfaces:   []string{"eth4", "eth3"},
 				},
 			},
 			expect: layer2.NewIPAdvertisement(net.IP{192, 168, 10, 3}, true, sets.Set[string]{}),
